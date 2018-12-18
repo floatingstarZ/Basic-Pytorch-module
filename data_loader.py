@@ -8,6 +8,7 @@ import PIL as pil
 #这是另外一种方法
 from torchvision.datasets import ImageFolder
 
+# label_file_path为空字符串的时候就不返回label了。
 class DefaultDataset(data.Dataset):
     # load_index 需要加载的样本下标
     # image_folder: 图片文件夹
@@ -17,21 +18,29 @@ class DefaultDataset(data.Dataset):
         super(data.Dataset, self).__init__()
         self.load_index = load_index
         self.transform = transform
+        self.__has_label = True
         # 加载图像，标签
-        self.label_loader = LabelLoader(label_file_path, load_index)
-        self.image_loader = ImageLoader(image_folder, load_index)
-        if len(self.image_loader) != len(self.label_loader):
-            raise Exception('Number of label images does not match')
+        if label_file_path:
+            self.label_loader = LabelLoader(label_file_path, load_index)
+            self.image_loader = ImageLoader(image_folder, load_index)
+            if len(self.image_loader) != len(self.label_loader):
+                raise Exception('Number of label images does not match')
+        else:
+            self.image_loader = ImageLoader(image_folder, load_index)
+            self.__has_label = False
 
     def __getitem__(self, index):
         img = self.image_loader[index]
-        label = self.label_loader[index]
         if self.transform:
             img = self.transform(img)
-        return [img, label]
+        if self.__has_label:
+            label = self.label_loader[index]
+            return [img, label]
+        else:
+            return [self.image_loader.file_names[index], img]
 
     def __len__(self):
-        return len(self.label_loader)
+        return len(self.image_loader)
 
 class BasicLoader(object):
     def __init__(self, file_path):

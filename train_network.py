@@ -25,8 +25,9 @@ model_folder = sl.ModelFloder()
 log = sl.LogFile(log_file_path)
 info = sl.InfoFile(info_file_path)
 
+TOTAL_SIZE = 8000
 TRAIN_SIZE = 7000
-VALIDATE_SIZE = 1000
+VALIDATE_SIZE = TOTAL_SIZE - TRAIN_SIZE
 BATCH_SIZE = 200
 IMG_SIZE = 224
 
@@ -54,7 +55,7 @@ validata_data = data_loader.DefaultDataset(label_file_path,
                                 image_folder, transform=image_transform, load_index=validata_index)
 # 设置loader， batch为100，打乱
 train_loader = data.DataLoader(train_data, BATCH_SIZE, shuffle=True)
-validate_loader = data.DataLoader(validata_data, int(VALIDATE_SIZE / 2), shuffle=True)
+validate_loader = data.DataLoader(validata_data, int(VALIDATE_SIZE/2), shuffle=False)
 print('Data load Success')
 
 # 打开记录文档，记录训练过程
@@ -76,10 +77,7 @@ if premodel:
     print('load premodel')
 
 basic_model = basic_model.to(device)
-# for params in list(basic_model.parameters()):
-#     print(params.device)
 
-#torch.nn.Module.cuda(basic_model, device=device)
 def cal_acc(basic_model, inputs, labels):
     correct = 0
     predicts = []
@@ -88,33 +86,27 @@ def cal_acc(basic_model, inputs, labels):
     with torch.no_grad():
         inputs = inputs.to(device)
         outputs = basic_model(inputs)
+        real_output = outputs
         # predict为每一行最大的值得下标
         _, predicts = torch.max(outputs, 1)
-        # print('count %d, predict : %d, label : %d' % (count, predict, label))
         correct += (predicts == labels).sum()
         acc = float(correct) / float(len(labels))
         print('acc %f' % acc)
-        #print('labels', labels)
-        #print('predicts', predicts)
-        # print('output', real_output)
         log.write('acc: %f\n' % acc)
-        log.write('epoch_loss: %d\n\n' % epoch_loss)
         del inputs
         del outputs
         del predicts
-        del correct
         del acc
-        model_folder.save_model( )
-    # correct = 0
-
+        model_folder.save_model(basic_model)
+    return float(correct)
 
 for epoch in range(PRE_EPOCH, EPOCH):
     epoch_loss: float = 0
     log.write('epoch: %d\n' % epoch)
+    train_acc = 0
     print('epoch: %d' % epoch)
     for [iter, data] in enumerate(train_loader):
         [inputs, labels] = data
-        #inputs, labels = inputs.float(), labels.long()
         inputs, labels = inputs.to(device), labels.to(device)
 
         optimizer.zero_grad()
@@ -128,46 +120,21 @@ for epoch in range(PRE_EPOCH, EPOCH):
         loss_list.append(loss)
         log.write('iter: %d, loss: %f\n' % (iter, loss))
         epoch_loss = float(epoch_loss + loss)
-        #cal_acc(basic_model, inputs, labels)
+        # train_acc = train_acc + cal_acc(basic_model, inputs, labels)
         del outputs
         del loss
         del inputs
+    # print('total_correct: %f' % train_acc)
+    # log.write('total_correct: %f\n' % train_acc)
 
-    if epoch % 2  == 0:
+    if epoch % 2 == 0:
+        basic_model.eval()
         for validate in validate_loader:
             [inputs, labels] = validate
             inputs, labels = inputs.to(device), labels.to(device)
             cal_acc(basic_model, inputs, labels)
             del inputs
             del labels
-        # correct = 0
-        # labels = []
-        # predicts = []
-        # real_output = []
-        # count = 0
-        # for data in validata_data:
-        #     [inputs, label] = data
-        #     inputs = inputs.reshape(1, 3, 224, 224).to(device)
-        #     inputs = inputs.to(device)
-        #     outputs = basic_model(inputs)
-        #     # predict为每一行最大的值得下标
-        #     values, predict = torch.max(outputs, 1)
-        #
-        #     labels.append(label)
-        #     predicts.append(predict.tolist()[0])
-        #     real_output.append(outputs.tolist()[0])
-        #     #print('count %d, predict : %d, label : %d' % (count, predict, label))
-        #     if label == predict:
-        #         correct = correct + 1
-        #     del outputs
-        # acc = float(correct) / float(len(validata_data))
-        # print('acc %f' % acc)
-        # # print('labels', labels)
-        # # print('predicts', predicts)
-        # # print('output', real_output)
-        # log.write('acc: %f\n' % acc)
-        # log.write('epoch_loss: %d\n\n' % epoch_loss)
-        # model_folder.save_model(basic_model)
 
 
 
