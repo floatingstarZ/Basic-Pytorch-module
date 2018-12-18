@@ -28,7 +28,7 @@ class DefaultDataset(data.Dataset):
         label = self.label_loader[index]
         if self.transform:
             img = self.transform(img)
-        return img, label
+        return [img, label]
 
     def __len__(self):
         return len(self.label_loader)
@@ -133,6 +133,7 @@ if __name__ == '__main__':
     train_data = DefaultDataset(label_file_path,
                                 image_folder, transform_train)
     loader = data.DataLoader(train_data, 100, True)
+
 
 
 
